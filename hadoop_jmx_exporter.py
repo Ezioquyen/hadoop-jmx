@@ -19,12 +19,10 @@ logger = get_module_logger(__name__)
 def register_prometheus(cluster, args):
     if args.nns is not None and len(args.nns) > 0:
         nnc = NameNodeMetricCollector(cluster, args.nns)
-        nnc.collect()
         REGISTRY.register(nnc)
         REGISTRY.register(DataNodeMetricCollector(cluster, nnc))
     if args.rms is not None and len(args.rms) > 0:
         rmc = ResourceManagerMetricCollector(cluster, args.rms, args.queue)
-        rmc.collect()
         REGISTRY.register(rmc)
         REGISTRY.register(NodeManagerMetricCollector(cluster, rmc))
     if args.jns is not None and len(args.jns) > 0:
@@ -34,7 +32,7 @@ def main():
     host = args.host
     port = int(args.port)
     start_http_server(port, host)
-    print "Listen at %s:%s" % (host, port)
+    print ("Listen at %s:%s" % (host, port))
     register_prometheus(args.cluster, args)
     while True:
         time.sleep(300)

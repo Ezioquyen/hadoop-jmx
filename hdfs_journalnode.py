@@ -28,6 +28,7 @@ class JournalNodeMetricCollector(MetricCollector):
     def collect(self):
         isSetup = False
         beans_list = self.scrape_metrics.scrape()
+
         for beans in beans_list:
             if not isSetup:
                 self.common_metric_collector.setup_labels(beans)

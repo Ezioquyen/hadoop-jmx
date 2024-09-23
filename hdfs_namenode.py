@@ -31,23 +31,29 @@ class NameNodeMetricCollector(MetricCollector):
     def collect(self):
         isSetup = False
         beans_list = self.scrape_metrics.scrape()
-        for beans in beans_list:
-            if not isSetup:
-                self.common_metric_collector.setup_labels(beans)
-                self.setup_metrics_labels(beans)
-                isSetup = True
-            for i in range(len(beans)):
-                if 'tag.Hostname' in beans[i]:
-                    self.target = beans[i]["tag.Hostname"]
-                    break
-            self.hadoop_namenode_metrics.update(self.common_metric_collector.get_metrics(beans, self.target))
-            self.get_metrics(beans)
+        self.hadoop_namenode_metrics['hdfs']['live'] = GaugeMetricFamily('hadoop_hdfs_info', 'hdfs state', labels=[self.cluster])
+        if not beans_list:
+            self.hadoop_namenode_metrics['hdfs']['live'].add_metric([self.cluster], 0)
+            yield self.hadoop_namenode_metrics['hdfs']['live']
+        else:
+            self.hadoop_namenode_metrics['hdfs']['live'].add_metric([self.cluster], 1)
+            for beans in beans_list:
+                if not isSetup:
+                    self.common_metric_collector.setup_labels(beans)
+                    self.setup_metrics_labels(beans)
+                    isSetup = True
+                for i in range(len(beans)):
+                    if 'tag.Hostname' in beans[i]:
+                        self.target = beans[i]["tag.Hostname"]
+                        break
+                self.hadoop_namenode_metrics.update(self.common_metric_collector.get_metrics(beans, self.target))
+                self.get_metrics(beans)
 
-        for i in range(len(self.merge_list)):
-            service = self.merge_list[i]
-            if service in self.hadoop_namenode_metrics:
-                for metric in self.hadoop_namenode_metrics[service]:
-                    yield self.hadoop_namenode_metrics[service][metric]
+            for i in range(len(self.merge_list)):
+                service = self.merge_list[i]
+                if service in self.hadoop_namenode_metrics:
+                    for metric in self.hadoop_namenode_metrics[service]:
+                        yield self.hadoop_namenode_metrics[service][metric]
 
     def setup_nnactivity_labels(self):
         num_namenode_flag, avg_namenode_flag, ops_namenode_flag = 1, 1, 1
@@ -358,7 +364,7 @@ class NameNodeMetricCollector(MetricCollector):
             label = [self.cluster]
             key = metric
             if 'FSState' in metric:
-                if 'Safemode' == bean['FSState']:
+                if 'safeMode' == bean['FSState']:
                     value = 0.0
                 elif 'Operational' == bean['FSState']:
                     value = 1.0

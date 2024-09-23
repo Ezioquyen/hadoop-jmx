@@ -27,23 +27,24 @@ class NodeManagerMetricCollector(MetricCollector):
     def collect(self):
         isSetup = False
         beans_list = ScrapeMetrics(self.rmc.nms).scrape()
-        for beans in beans_list:
-            if not isSetup:
-                self.common_metric_collector.setup_labels(beans)
-                self.setup_metrics_labels(beans)
-                isSetup = True
-            for i in range(len(beans)):
-                if 'tag.Hostname' in beans[i]:
-                    self.target = beans[i]["tag.Hostname"]
-                    break
-            self.hadoop_nodemanager_metrics.update(self.common_metric_collector.get_metrics(beans, self.target))
-            self.get_metrics(beans)
+        if not beans_list:
+            for beans in beans_list:
+                if not isSetup:
+                    self.common_metric_collector.setup_labels(beans)
+                    self.setup_metrics_labels(beans)
+                    isSetup = True
+                for i in range(len(beans)):
+                    if 'tag.Hostname' in beans[i]:
+                        self.target = beans[i]["tag.Hostname"]
+                        break
+                self.hadoop_nodemanager_metrics.update(self.common_metric_collector.get_metrics(beans, self.target))
+                self.get_metrics(beans)
 
-        for i in range(len(self.merge_list)):
-            service = self.merge_list[i]
-            if service in self.hadoop_nodemanager_metrics:
-                for metric in self.hadoop_nodemanager_metrics[service]:
-                    yield self.hadoop_nodemanager_metrics[service][metric]
+            for i in range(len(self.merge_list)):
+                service = self.merge_list[i]
+                if service in self.hadoop_nodemanager_metrics:
+                    for metric in self.hadoop_nodemanager_metrics[service]:
+                        yield self.hadoop_nodemanager_metrics[service][metric]
 
     def setup_metrics_labels(self, beans):
         for i in range(len(beans)):
