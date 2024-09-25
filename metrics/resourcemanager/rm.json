@@ -1,3 +1,4 @@
 {
-  "live": "test"
+  "live": "test",
+  "applicationState": "test"
 }

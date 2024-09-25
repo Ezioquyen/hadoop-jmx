@@ -1,13 +1,14 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-
-import yaml
 import re
+
+import requests
+import yaml
 from prometheus_client.core import GaugeMetricFamily
 
-from utils import get_module_logger
 from common import MetricCollector, CommonMetricCollector
 from scraper import ScrapeMetrics
+from utils import get_module_logger
 
 logger = get_module_logger(__name__)
 
@@ -22,13 +23,19 @@ class ResourceManagerMetricCollector(MetricCollector):
         'LOST': 5,
         'REBOOTED': 6,
     }
-
+    STATE_MAPPING = {
+        'RUNNING': 1,
+        'FAILED': 2,
+        'KILLED': 3,
+        'FINISHED': 4,
+        'ACCEPTED': 5
+    }
     def __init__(self, cluster, urls, queue_regexp):
         MetricCollector.__init__(self, cluster, "yarn", "resourcemanager")
         self.target = "-"
+        self.urls = urls
         self.queue_regexp = queue_regexp
         self.nms = set()
-
         self.hadoop_resourcemanager_metrics = {}
         for i in range(len(self.file_list)):
             self.hadoop_resourcemanager_metrics.setdefault(self.file_list[i], {})
@@ -40,23 +47,51 @@ class ResourceManagerMetricCollector(MetricCollector):
     def collect(self):
         isSetup = False
         beans_list = self.scrape_metrics.scrape()
-        for beans in beans_list:
-            if not isSetup:
-                self.common_metric_collector.setup_labels(beans)
-                self.setup_metrics_labels(beans)
-                isSetup = True
-            for i in range(len(beans)):
-                if 'tag.Hostname' in beans[i]:
-                    self.target = beans[i]["tag.Hostname"]
-                    break
-            self.hadoop_resourcemanager_metrics.update(self.common_metric_collector.get_metrics(beans, self.target))
-            self.get_metrics(beans)
+        self.hadoop_resourcemanager_metrics['rm']['live'] = GaugeMetricFamily('hadoop_yarn_info', 'yarn state', labels=[self.cluster])
+        self.hadoop_resourcemanager_metrics['rm']['applicationState'] = GaugeMetricFamily('application_state','app state', labels=['application_id', 'user', 'final_status', 'name', 'start_time', 'host'])
+        if not beans_list:
+            self.hadoop_resourcemanager_metrics['rm']['live'].add_metric([self.cluster], 0)
+            yield self.hadoop_resourcemanager_metrics['rm']['live']
+        else:
+            self.hadoop_resourcemanager_metrics['rm']['live'].add_metric([self.cluster], 1)
+            for url in self.urls:
+                self.process_applications(url)
+            for beans in beans_list:
+                if not isSetup:
+                    self.common_metric_collector.setup_labels(beans)
+                    self.setup_metrics_labels(beans)
+                    isSetup = True
+                for i in range(len(beans)):
+                    if 'tag.Hostname' in beans[i]:
+                        self.target = beans[i]["tag.Hostname"]
+                        break
+                self.hadoop_resourcemanager_metrics.update(self.common_metric_collector.get_metrics(beans, self.target))
+                self.get_metrics(beans)
 
-        for i in range(len(self.merge_list)):
-            service = self.merge_list[i]
-            if service in self.hadoop_resourcemanager_metrics:
-                for metric in self.hadoop_resourcemanager_metrics[service]:
-                    yield self.hadoop_resourcemanager_metrics[service][metric]
+            for i in range(len(self.merge_list)):
+                service = self.merge_list[i]
+                if service in self.hadoop_resourcemanager_metrics:
+                    for metric in self.hadoop_resourcemanager_metrics[service]:
+                        yield self.hadoop_resourcemanager_metrics[service][metric]
+
+
+    def process_applications(self, url):
+        try:
+            response = requests.get(f'{url.split("/jmx")[0]}/ws/v1/cluster/apps')
+            response.raise_for_status()  # Raise an exception for HTTP errors
+            data = response.json()
+        except requests.RequestException as e:
+            print(f"Error fetching applications: {e}")
+            return []
+        for app in data.get('apps', {}).get('app', []):
+            application_id = app.get('id')
+            state = app.get('state')
+            user = app.get('user')
+            name = app.get('name')
+            start_time = str(app.get('startedTime'))
+            final_status = app.get('finalStatus')
+            state_value = self.STATE_MAPPING.get(state, 0)
+            self.hadoop_resourcemanager_metrics['rm']['applicationState'].add_metric([application_id, user, final_status, name, start_time, url], state_value)
 
     def setup_rmnminfo_labels(self):
         for metric in self.metrics['RMNMInfo']:
