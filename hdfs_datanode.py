@@ -29,7 +29,7 @@ class DataNodeMetricCollector(MetricCollector):
         if self.nnc.dns == "":
             return
         beans_list = ScrapeMetrics(self.nnc.dns).scrape()
-        if not beans_list:
+        if beans_list:
             for beans in beans_list:
                 if not isSetup:
                     self.common_metric_collector.setup_labels(beans)
