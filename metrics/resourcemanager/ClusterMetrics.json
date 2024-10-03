@@ -4,6 +4,7 @@
     "NumLostNMs": "Current number of lost NodeManagers for not sending heartbeats",
     "NumUnhealthyNMs": "Current number of unhealthy NodeManagers",
     "NumRebootedNMs": "Current number of rebooted NodeManagers",
+    "NumShutdownNMs":  "Number of shutdown Node",
     "AMLaunchDelayNumOps": "Total number of AMs launched",
     "AMLaunchDelayAvgTime": "Average time in milliseconds RM spends to launch AM containers after the AM container is allocated",
     "AMRegisterDelayNumOps": "Total number of AMs registered",
