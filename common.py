@@ -138,13 +138,13 @@ class CommonMetricCollector():
 
     def setup_os_labels(self):
         for metric in self.tmp_metrics['OperatingSystem']:
-            label = ["cluster", "_target"]
+            label = ["cluster", "_target","component"]
             snake_case = re.sub('([a-z0-9])([A-Z])', r'\1_\2', metric).lower()
             name = "_".join([self.prefix, snake_case])
             self.common_metrics['OperatingSystem'][metric] = GaugeMetricFamily(name, self.tmp_metrics['OperatingSystem'][metric], labels=label)
     def setup_alias_labels(self):
         for metric in self.tmp_metrics['AliasMetrics']:
-            label = ["cluster", "_target"]
+            label = ["cluster", "_target","component"]
             snake_case = re.sub('([a-z0-9])([A-Z])', r'\1_\2', metric).lower()
             name = "_".join([self.prefix, snake_case])
             self.common_metrics['AliasMetrics'][metric] = GaugeMetricFamily(name, self.tmp_metrics['AliasMetrics'][metric], labels=label)
@@ -323,13 +323,13 @@ class CommonMetricCollector():
 
     def get_os_metrics(self, bean):
         for metric in self.tmp_metrics['OperatingSystem']:
-            label = [self.cluster, self.target]
+            label = [self.cluster, self.target, self.componet]
             self.common_metrics['OperatingSystem'][metric].add_metric(label, bean[metric] if metric in bean else 0)
 
     def get_alias_metrics(self, bean):
         for metric in self.tmp_metrics['AliasMetrics']:
             if "MemoryUsage" in metric:
-                label = [self.cluster, self.target]
+                label = [self.cluster, self.target, self.componet]
                 total = bean["TotalPhysicalMemorySize"]
                 free = bean["FreePhysicalMemorySize"]
                 self.common_metrics['AliasMetrics']["MemoryUsage"].add_metric(label, ((total - free) / total) * 100)
