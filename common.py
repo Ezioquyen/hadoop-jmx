@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import re
+from pickletools import stringnl_noescape
+
 from prometheus_client.core import GaugeMetricFamily
 
 import utils
@@ -53,6 +55,7 @@ class CommonMetricCollector():
                 self.setup_jvm_labels()
             if 'OperatingSystem' in beans[i]['name']:
                 self.setup_os_labels()
+                self.setup_alias_labels()
             if 'RpcActivity' in beans[i]['name']:
                 self.setup_rpc_labels()
             if 'RpcDetailedActivity' in beans[i]['name']:
@@ -71,6 +74,7 @@ class CommonMetricCollector():
                 self.get_jvm_metrics(beans[i])
             if 'OperatingSystem' in beans[i]['name']:
                 self.get_os_metrics(beans[i])
+                self.get_alias_metrics(beans[i])
             if 'RpcActivity' in beans[i]['name']:
                 self.get_rpc_metrics(beans[i])
             if 'RpcDetailedActivity' in beans[i]['name']:
@@ -138,6 +142,12 @@ class CommonMetricCollector():
             snake_case = re.sub('([a-z0-9])([A-Z])', r'\1_\2', metric).lower()
             name = "_".join([self.prefix, snake_case])
             self.common_metrics['OperatingSystem'][metric] = GaugeMetricFamily(name, self.tmp_metrics['OperatingSystem'][metric], labels=label)
+    def setup_alias_labels(self):
+        for metric in self.tmp_metrics['AliasMetrics']:
+            label = ["cluster", "_target"]
+            snake_case = re.sub('([a-z0-9])([A-Z])', r'\1_\2', metric).lower()
+            name = "_".join([self.prefix, snake_case])
+            self.common_metrics['AliasMetrics'][metric] = GaugeMetricFamily(name, self.tmp_metrics['AliasMetrics'][metric], labels=label)
 
     def setup_rpc_labels(self):
         num_rpc_flag, avg_rpc_flag = 1, 1
@@ -313,9 +323,17 @@ class CommonMetricCollector():
 
     def get_os_metrics(self, bean):
         for metric in self.tmp_metrics['OperatingSystem']:
-            label = [self.cluster]
-            label.append(self.target)
+            label = [self.cluster, self.target]
             self.common_metrics['OperatingSystem'][metric].add_metric(label, bean[metric] if metric in bean else 0)
+
+    def get_alias_metrics(self, bean):
+        for metric in self.tmp_metrics['AliasMetrics']:
+            if "MemoryUsage" in metric:
+                label = [self.cluster, self.target]
+                total = bean["TotalPhysicalMemorySize"]
+                free = bean["FreePhysicalMemorySize"]
+                self.common_metrics['AliasMetrics']["MemoryUsage"].add_metric(label, ((total - free) / total) * 100)
+#maybe update more
 
     def get_rpc_metrics(self, bean):
         rpc_tag = bean['tag.port']
